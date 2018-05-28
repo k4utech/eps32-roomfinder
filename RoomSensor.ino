@@ -21,6 +21,7 @@ void setup() {
   Serial.begin(115200);
   pinModeSetups();
   connectToWifi();
+  roomSetUp();
 }
 
 void loop() {
@@ -47,7 +48,7 @@ void roomSetUp(){
 }
 
 /*Http request utils*/
-void sendHttpPost(const char*  url, const char* contentType,  String body){
+void sendHttpPost(const char* contentType, const char* url,  String body){
   HTTPClient http;
   http.begin(url);
   http.addHeader("Content-Type", contentType);
