@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <HTTPClient.h>
 #include <esp_int_wdt.h>
 #include <esp_task_wdt.h>
 const char* ssid       = "**";
@@ -7,6 +8,14 @@ const char* password   = "**";
 const int IndicatorPin = 2;
 
 const int AttemptThreshold = 50;
+
+const char* JsonContentType="application/json";
+
+const char* RooomUrl = ""; // URL for Room
+const char* RooomStatusUrl = ""; // URL for Room Status
+
+
+const int sensorId=1;
 
 void setup() {
   Serial.begin(115200);
@@ -20,12 +29,62 @@ void loop() {
   ensureWifiConnection();
   processPIRSensor();
   processThermalSensor();
+  publishData();
   stopIndicator();
 }
 
 void pinModeSetups(){
   pinMode(IndicatorPin, OUTPUT);
 }
+
+void publishData(){
+  preparePostRequest();
+}
+
+void roomSetUp(){
+  String body = "{\"id\":1,\"name\":\"1\"}";
+  sendHttpPost(JsonContentType, RooomUrl, body);
+}
+
+/*Http request utils*/
+void sendHttpPost(const char*  url, const char* contentType,  String body){
+  HTTPClient http;
+  http.begin(url);
+  http.addHeader("Content-Type", contentType);
+  int httpResponseCode = http.POST(body);
+  httpResponseHandler(httpResponseCode, "Room setup completed", "Room setup failed");
+  if( httpResponseCode > 0){
+    String response = http.getString();
+    Serial.println(response);
+  }
+  http.end();
+}
+
+void preparePostRequest(){
+  HTTPClient http;
+  http.begin(RooomUrl);
+  ////http.addHeader("Content-Type", "application/json");
+  http.addHeader("Content-Type", "text/plain");  
+  int httpResponseCode = http.GET();
+  httpResponseHandler(httpResponseCode, "Got Rooms", "Rooms Get error");
+  if( httpResponseCode > 0){
+    String response = http.getString();
+    Serial.println(response);
+  }
+  http.end();
+}
+
+void httpResponseHandler(int httpResponseCode, String successMessage, String failureMessage){
+  if(httpResponseCode>0){
+    Serial.println(httpResponseCode);   //Print return code
+    Serial.println(successMessage);
+  }else{
+    Serial.print("Error on sending GET: ");
+    Serial.println(httpResponseCode);
+    Serial.println(failureMessage);
+  }
+}
+
 /*Thermal Utils*/
 void processThermalSensor(){
   delay(50);
@@ -60,6 +119,7 @@ void connectToWifi(){
   }
   stopIndicator();
   Serial.println("WIFI CONNECTED");
+  Serial.println(WiFi.localIP());
 }
 
 void disconnectWifi(){
