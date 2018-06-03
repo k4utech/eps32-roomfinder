@@ -4,6 +4,7 @@
 #include <esp_task_wdt.h>
 const char* ssid       = "**";
 const char* password   = "**";
+#include "time.h"
 
 const int IndicatorPin = 2;
 
@@ -17,34 +18,87 @@ const char* RooomStatusUrl = ""; // URL for Room Status
 
 const int sensorId=1;
 
+//PIR Values
+#define PIRInputPin 4
+#define PIRRetryCount 100
+
+//Time Setup
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 3600;
+const int   daylightOffset_sec = 3600;
+
 void setup() {
   Serial.begin(115200);
   pinModeSetups();
   connectToWifi();
   roomSetUp();
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 }
 
 void loop() {
   delay(5000);
   startIndicator();
   ensureWifiConnection();
-  processPIRSensor();
-  processThermalSensor();
-  publishData();
+  boolean pirResult = processPIRSensor();
+  //processThermalSensor();
+  publishData(pirResult);
   stopIndicator();
 }
 
 void pinModeSetups(){
   pinMode(IndicatorPin, OUTPUT);
+  pinMode(PIRInputPin, INPUT);
 }
 
-void publishData(){
-  preparePostRequest();
+void publishData(boolean pirResult){
+  String body ;
+  String hours = getHours();
+  String date = getDate();
+  if(pirResult == true)
+    body = "{\"id\":1,\"status\":\"true\", \"businessDate\":\""+date+"\",\"hours\":\""+hours+"\"},";
+  else
+    body = "{\"id\":1,\"status\":\"false\", \"businessDate\":\""+date+"\",\"hours\":\""+hours+"\"},";
+  sendHttpPost(JsonContentType, RooomStatusUrl, body);
 }
 
 void roomSetUp(){
   String body = "{\"id\":1,\"name\":\"1\"}";
   sendHttpPost(JsonContentType, RooomUrl, body);
+}
+
+/**
+ * TimeUtils
+ */
+
+tm getTimeInfo()
+{
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return timeinfo;
+  }
+  return timeinfo;
+ //Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  //getHours(&timeinfo);//Serial.println(&timeinfo, "%H%M");
+  //getDate(&timeinfo);//Serial.println(&timeinfo, "%d-%m-%y");
+}
+
+String getHours(){
+  struct tm timeinfo = getTimeInfo();
+  Serial.println(&timeinfo, "%H%M");
+  char buf[100];
+  strptime(buf, "%H%M",&timeinfo);
+  Serial.println(String(buf));
+  return String(buf);
+}
+
+String getDate(){
+  struct tm timeinfo = getTimeInfo();
+  char buf[100];
+  Serial.println(&timeinfo, "%d-%m-%y");
+  strptime(buf, "%d-%m-%y",&timeinfo);
+  Serial.println(String(buf));
+  return String(buf);
 }
 
 /*Http request utils*/
@@ -53,6 +107,7 @@ void sendHttpPost(const char* contentType, const char* url,  String body){
   http.begin(url);
   http.addHeader("Content-Type", contentType);
   int httpResponseCode = http.POST(body);
+  Serial.print("POST HTTP Request: ");Serial.print(url); Serial.print(" "); Serial.println(body);
   httpResponseHandler(httpResponseCode, "Room setup completed", "Room setup failed");
   if( httpResponseCode > 0){
     String response = http.getString();
@@ -61,10 +116,9 @@ void sendHttpPost(const char* contentType, const char* url,  String body){
   http.end();
 }
 
-void preparePostRequest(){
+void getRoomDetails(){
   HTTPClient http;
   http.begin(RooomUrl);
-  ////http.addHeader("Content-Type", "application/json");
   http.addHeader("Content-Type", "text/plain");  
   int httpResponseCode = http.GET();
   httpResponseHandler(httpResponseCode, "Got Rooms", "Rooms Get error");
@@ -92,8 +146,21 @@ void processThermalSensor(){
 }
 
 /*PIR utils*/
-void processPIRSensor(){
-  delay(50);
+/**
+ * In 10 sec interval if PIR detects one motion the result will be true
+ */
+boolean processPIRSensor(){
+  boolean motionDetected = false;
+  for(int i = 0; i < PIRRetryCount; i++){
+    if(digitalRead(PIRInputPin) == HIGH) {
+      Serial.println("Motion detected. - ");
+      motionDetected = true;
+    }else{
+      Serial.println("Motion Not detected. - ");
+    }
+    delay(100);
+  }
+  return motionDetected;
 }
 
 /*Utill Fiunctions for Wifi */
