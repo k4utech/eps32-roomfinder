@@ -19,10 +19,10 @@ const char* RooomStatusUrl = ""; // URL for Room Status
 const int sensorId=1;
 
 //PIR Values
-#define PIRInputPin1 4
-#define PIRInputPin2 18
-#define PIRInputPin3 19
-#define PIRRetryCount 60 
+#define PIRInputPin1 12
+#define PIRInputPin2 13
+#define PIRInputPin3 14
+#define PIRRetryCount 10
 
 //Time Setup
 const char* ntpServer = "pool.ntp.org";
@@ -38,10 +38,10 @@ void setup() {
 }
 
 void loop() {
-  startIndicator();
   ensureWifiConnection();
   boolean pirResult = processPIRSensor();
   //processThermalSensor();
+  startIndicator();
   publishData(pirResult);
   stopIndicator();
 }
@@ -168,7 +168,7 @@ boolean processPIRSensor(){
       Serial.println("Motion detected at Sensor - PIRInputPin3");
       motionDetected = true;
     }
-    delay(100);
+    delay(500);
   }
   return motionDetected;
 }
