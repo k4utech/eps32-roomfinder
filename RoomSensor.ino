@@ -19,8 +19,10 @@ const char* RooomStatusUrl = ""; // URL for Room Status
 const int sensorId=1;
 
 //PIR Values
-#define PIRInputPin 4
-#define PIRRetryCount 100
+#define PIRInputPin1 4
+#define PIRInputPin2 18
+#define PIRInputPin3 19
+#define PIRRetryCount 60 
 
 //Time Setup
 const char* ntpServer = "pool.ntp.org";
@@ -36,7 +38,6 @@ void setup() {
 }
 
 void loop() {
-  delay(5000);
   startIndicator();
   ensureWifiConnection();
   boolean pirResult = processPIRSensor();
@@ -47,7 +48,12 @@ void loop() {
 
 void pinModeSetups(){
   pinMode(IndicatorPin, OUTPUT);
-  pinMode(PIRInputPin, INPUT);
+  pinMode(PIRInputPin1, INPUT);
+  pinMode(PIRInputPin2, INPUT);
+  pinMode(PIRInputPin3, INPUT);
+  digitalWrite(PIRInputPin1,LOW);
+  digitalWrite(PIRInputPin2,LOW);
+  digitalWrite(PIRInputPin3,LOW);
 }
 
 void publishData(boolean pirResult){
@@ -55,9 +61,9 @@ void publishData(boolean pirResult){
   String hours = getHours();
   String date = getDate();
   if(pirResult == true)
-    body = "{\"id\":1,\"status\":\"true\", \"businessDate\":\""+date+"\",\"hours\":\""+hours+"\"},";
+    body = "{\"id\":1,\"status\":\"true\", \"businessDate\":\""+date+"\",\"hours\":\""+hours+"\"}";
   else
-    body = "{\"id\":1,\"status\":\"false\", \"businessDate\":\""+date+"\",\"hours\":\""+hours+"\"},";
+    body = "{\"id\":1,\"status\":\"false\", \"businessDate\":\""+date+"\",\"hours\":\""+hours+"\"}";
   sendHttpPost(JsonContentType, RooomStatusUrl, body);
 }
 
@@ -85,20 +91,18 @@ tm getTimeInfo()
 
 String getHours(){
   struct tm timeinfo = getTimeInfo();
-  Serial.println(&timeinfo, "%H%M");
   char buf[100];
-  strptime(buf, "%H%M",&timeinfo);
-  Serial.println(String(buf));
-  return String(buf);
+  //Serial.println(&timeinfo, "%H%M");
+  strftime(buf, 100 , "%H%M",&timeinfo);
+  //Serial.println(String(buf));
+  return buf;
 }
 
 String getDate(){
   struct tm timeinfo = getTimeInfo();
   char buf[100];
-  Serial.println(&timeinfo, "%d-%m-%y");
-  strptime(buf, "%d-%m-%y",&timeinfo);
-  Serial.println(String(buf));
-  return String(buf);
+  strftime (buf, 100, "%Y-%m-%d",&timeinfo);
+  return buf;
 }
 
 /*Http request utils*/
@@ -152,11 +156,17 @@ void processThermalSensor(){
 boolean processPIRSensor(){
   boolean motionDetected = false;
   for(int i = 0; i < PIRRetryCount; i++){
-    if(digitalRead(PIRInputPin) == HIGH) {
-      Serial.println("Motion detected. - ");
+    if(digitalRead(PIRInputPin1) == HIGH) {
+      Serial.println("Motion detected at Sensor - PIRInputPin1");
       motionDetected = true;
-    }else{
-      Serial.println("Motion Not detected. - ");
+    }
+    if(digitalRead(PIRInputPin2) == HIGH) {
+      Serial.println("Motion detected at Sensor - PIRInputPin2");
+      motionDetected = true;
+    }
+    if(digitalRead(PIRInputPin3) == HIGH) {
+      Serial.println("Motion detected at Sensor - PIRInputPin3");
+      motionDetected = true;
     }
     delay(100);
   }
